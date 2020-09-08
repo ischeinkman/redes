@@ -206,6 +206,31 @@ impl MidiNote {
             MidiNote::from_raw(raw_result as u8)
         }
     }
+    pub fn frequency(&self) -> f64 {
+        // Note -> freq
+        // Given a Midi note number `a`, get the frequency in Hz.
+        // The frequency doubles every 12 notes, and A440 = Midi note 69 = 440 Hz,
+        // so the basic formula is `F(a) = 440.0 * (2.0).powf((a - 69.0)/12.0)` .
+        // However, for the sake of `const`-ness, we want to use integers as much as possible.
+        //
+        // A note can be described as `a = 12*k + n`, for integer `k` and integer `n` where `0 <= n <= 11`.
+        // A440 is then `69 = 12 * (5) + 9`, and the formula becomes
+        // `F(k, n) = 440.0 * (2.0).powf((12 * k + n - 69)/12 )
+        //          = 440.0 * (2.0).powf( k - 5 + (n - 9)/12 )
+        //          = 440.0 * (2.0).powf( k - 5) * (2.0).powf( (n - 9)/12 )
+        // Since 440.0 = 55.0 * 2**3:
+        //          = 55.0 * (2.0).powf( k - 2) * (2.0).powf( (n - 9)/12 )
+        //          = 55.0 * (2.0).powf( k - 2 + n/12 - 0.75)
+        //          = 55.0 * (2.0).powf(k - 2.75 + n/12)
+        //          = 55.0 * (2.0).powf(-2.75) * (2.0).powf(k) * 2.0.powf(n/12)
+        // We can then pre-compute 55.0 * (2.0).powf(-2.75) * 2.0.powf(n/12) for 0 <= n <= 11, set up a `match` statement function on the note classes
+        // (let it be `G(n)`), and then do `F(k, n) = G(n) * (1 << k)`.
+
+        // However, since it is really REALLY difficult to accomplish that in a const way atm, let's just use the regular way.
+        let a440_steps = (self.raw as i8) - 69;
+        let coeff = ((a440_steps as f64) / 12.0).exp2();
+        440.0 * coeff
+    }
 }
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
