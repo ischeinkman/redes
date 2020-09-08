@@ -30,15 +30,11 @@ impl DebugRtAllocator {
     fn assert_not_rt(&self, layout: Layout) {
         if self.is_rt() {
             unsafe {
-                dprintf(1, b"Tried to allocate in RT-thread.\0".as_ptr() as *const _);
-                handle_alloc_error(layout);
+                self.unset_rt();
+                panic!("Tried to allocate in RT-thread.");
             }
         }
     }
-}
-
-extern "C" {
-    fn dprintf(fd: u32, format: *const u8);
 }
 
 static DEF: System = System;
@@ -62,5 +58,35 @@ unsafe impl GlobalAlloc for DebugRtAllocator {
     }
 }
 
-#[cfg_attr(feature="rt-alloc-panic", global_allocator)]
+#[cfg_attr(feature = "rt-alloc-panic", global_allocator)]
 pub static MYALLOC: DebugRtAllocator = DebugRtAllocator::new();
+
+#[cfg(all(test, feature = "rt-alloc-panic"))]
+mod tests {
+    use super::*;
+    use std::sync::mpsc;
+    use std::thread;
+
+    #[test]
+    fn test_panic_alloc() {
+        let (snd, recv) = mpsc::sync_channel(4);
+        let cb = move || {
+            let heapa = Box::new([0u8; 16]);
+            let heapb = Box::new([1u8; 16]);
+            snd.send(heapa.as_ptr() as usize).unwrap();
+            snd.send(heapb.as_ptr() as usize).unwrap();
+            MYALLOC.set_rt();
+            let heapc = Box::new([2u8; 44]);
+            snd.send(heapc.as_ptr() as usize).unwrap();
+            MYALLOC.unset_rt();
+        };
+        let panicer = thread::spawn(cb);
+        let mut vals = Vec::with_capacity(2);
+        let tm = std::time::Duration::from_millis(500);
+        vals.push(recv.recv_timeout(tm).unwrap());
+        vals.push(recv.recv_timeout(tm).unwrap());
+        assert!(recv.recv_timeout(tm).is_err());
+        let joined = panicer.join();
+        assert!(joined.is_err());
+    }
+}
