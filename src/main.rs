@@ -1,18 +1,16 @@
-use jack::{AsyncClient, Client, ClientOptions, MidiIn, MidiOut, ProcessScope, RawMidi};
-use std::convert::{TryFrom, TryInto};
-use std::fmt::{self, Display, Formatter, LowerHex, UpperHex};
+use jack::{Client, ClientOptions, MidiIn, MidiOut, ProcessScope, RawMidi};
+use std::fmt::{self, Formatter, LowerHex, UpperHex};
 use std::sync::mpsc;
-use std::sync::mpsc::{RecvError, TryRecvError, TrySendError};
-use std::time::Duration;
+use std::sync::mpsc::{RecvError, TrySendError};
 mod midi;
 mod model;
-use model::{NoteKey};
+use model::NoteKey;
 mod utils;
-use midi::{
-    parse_midimessage, parse_noteoff, parse_noteon, MessageParseError, MidiChannel, MidiNote,
-    NoteOn, RawMessage, 
-};
+use midi::{parse_midimessage, MidiNote};
 pub use utils::*;
+
+#[cfg(feature="rt-alloc-panic")]
+mod malloc;
 
 #[inline(always)]
 const fn mask(note: u8) -> u128 {
@@ -59,6 +57,8 @@ impl NoteState {
 }
 
 fn main() -> ! {
+    #[cfg(feature="rt-alloc-panic")]
+    eprintln!("RT-ALLOC-PANIC was enabled: will panic if the realtime thread allocates.");
     let (client, _status) = Client::new("Midi Test 1", ClientOptions::NO_START_SERVER).unwrap();
     let mut out = client
         .register_port("Midi Output 1", MidiOut::default())
@@ -71,11 +71,13 @@ fn main() -> ! {
     let mut fail_count = 0;
     let mut state = NoteState::default();
     let cb = move |_client: &Client, ps: &ProcessScope| {
+        #[cfg(feature="rt-alloc-panic")]
+        malloc::MYALLOC.set_rt();
         let mut new_state = state;
         let mut outcon = out.writer(ps);
         for rawdata in inp.iter(ps) {
             let buff = rawdata.bytes;
-            let mut owned_buff: [u8; 3] = [0; 3];
+            let mut owned_buff = [0 ; 3];
             let bufflen = buff.len();
             let cplen = bufflen.min(owned_buff.len());
             (&mut owned_buff).copy_from_slice(&buff[..cplen]);
@@ -86,46 +88,49 @@ fn main() -> ! {
                 Ok(midi::MidiMessage::NoteOn(data)) => {
                     new_state = new_state.with_press(data.note().as_u8());
                     let major = NoteKey::major(data.note().note());
-                    let mut major_3 = MidiNote::from_note_octave(major.nth(2), data.note().octave());
+                    let mut major_3 =
+                        MidiNote::from_note_octave(major.nth(2), data.note().octave());
                     if major_3 < data.note() {
                         major_3 = major_3.wrapping_add(12);
                     }
-                    let mut major_5 = MidiNote::from_note_octave(major.nth(4), data.note().octave());
+                    let mut major_5 =
+                        MidiNote::from_note_octave(major.nth(4), data.note().octave());
                     if major_5 < major_3 {
                         major_5 = major_5.wrapping_add(12);
                     }
                     let major_3 = RawMidi {
-                        time : rawdata.time, 
-                        bytes : &data.with_note(major_3).as_bytes()
+                        time: rawdata.time,
+                        bytes: &data.with_note(major_3).as_bytes(),
                     };
                     let major_5 = RawMidi {
-                        time : rawdata.time, 
-                        bytes : &data.with_note(major_5).as_bytes()
+                        time: rawdata.time,
+                        bytes: &data.with_note(major_5).as_bytes(),
                     };
                     outcon.write(&rawdata).unwrap();
                     outcon.write(&major_3).unwrap();
                     outcon.write(&major_5).unwrap();
-
                 }
                 Ok(midi::MidiMessage::NoteOff(data)) => {
                     new_state = new_state.with_release(data.note().as_u8());
                     new_state = new_state.with_press(data.note().as_u8());
                     let major = NoteKey::major(data.note().note());
-                    let mut major_3 = MidiNote::from_note_octave(major.nth(2), data.note().octave());
+                    let mut major_3 =
+                        MidiNote::from_note_octave(major.nth(2), data.note().octave());
                     if major_3 < data.note() {
                         major_3 = major_3.wrapping_add(12);
                     }
-                    let mut major_5 = MidiNote::from_note_octave(major.nth(4), data.note().octave());
+                    let mut major_5 =
+                        MidiNote::from_note_octave(major.nth(4), data.note().octave());
                     if major_5 < major_3 {
                         major_5 = major_5.wrapping_add(12);
                     }
                     let major_3 = RawMidi {
-                        time : rawdata.time, 
-                        bytes : &data.with_note(major_3).as_bytes()
+                        time: rawdata.time,
+                        bytes: &data.with_note(major_3).as_bytes(),
                     };
                     let major_5 = RawMidi {
-                        time : rawdata.time, 
-                        bytes : &data.with_note(major_5).as_bytes()
+                        time: rawdata.time,
+                        bytes: &data.with_note(major_5).as_bytes(),
                     };
                     outcon.write(&rawdata).unwrap();
                     outcon.write(&major_3).unwrap();
@@ -146,6 +151,9 @@ fn main() -> ! {
             }
             outcon.write(&rawdata).unwrap();
         }
+        state = new_state;
+        #[cfg(feature="rt-alloc-panic")]
+        malloc::MYALLOC.unset_rt();
         jack::Control::Continue
     };
     let _active_client = client
