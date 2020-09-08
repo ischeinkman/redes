@@ -69,6 +69,23 @@ impl NoteClass {
             NoteClass::B => 11,
         }
     }
+    pub const fn name(&self) -> &'static str {
+        match self {
+            NoteClass::C => "C",
+            NoteClass::Cs => "C#",
+            NoteClass::D => "D",
+            NoteClass::Ds => "D#",
+            NoteClass::E => "E",
+            NoteClass::F => "F",
+            NoteClass::Fs => "F#",
+            NoteClass::G => "G",
+            NoteClass::Gs => "G#",
+            NoteClass::A => "A",
+            NoteClass::As => "A#",
+            NoteClass::B => "B",
+        }
+
+    }
 }
 
 impl NoteClass {}
