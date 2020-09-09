@@ -27,6 +27,7 @@ impl DebugRtAllocator {
         RT_FLAG.with(|flag| flag.load(Ordering::Acquire))
     }
 
+    #[track_caller]
     fn assert_not_rt(&self, layout: Layout) {
         if self.is_rt() {
             unsafe {
