@@ -50,13 +50,16 @@ impl NoteEventPayload {
 pub struct NoteOn {
     channel: MidiChannel,
     note: MidiNote,
-    velocity: PressVelocity,
+    vel: PressVelocity,
 }
 
 impl NoteOn {
     pub const fn as_bytes(&self) -> [u8; 3] {
         NoteEventPayload::new(self.channel(), self.note(), self.vel())
             .as_bytes(NoteEventTag::On as u8)
+    }
+    pub const fn new(channel: MidiChannel, note: MidiNote, vel: PressVelocity) -> Self {
+        Self { channel, note, vel }
     }
     pub const fn with_channel(self, channel: MidiChannel) -> Self {
         NoteOn { channel, ..self }
@@ -66,7 +69,7 @@ impl NoteOn {
     }
     pub const fn with_vel(self, vel: PressVelocity) -> Self {
         NoteOn {
-            velocity: vel,
+            vel,
             ..self
         }
     }
@@ -77,7 +80,7 @@ impl NoteOn {
         self.note
     }
     pub const fn vel(&self) -> PressVelocity {
-        self.velocity
+        self.vel
     }
 }
 
@@ -87,7 +90,7 @@ pub const fn parse_noteon(bytes: [u8; 3]) -> Result<NoteOn, MessageParseError> {
     Ok(NoteOn {
         channel: payload.channel,
         note: payload.note,
-        velocity: payload.velocity,
+        vel: payload.velocity,
     })
 }
 
@@ -95,7 +98,7 @@ pub const fn parse_noteon(bytes: [u8; 3]) -> Result<NoteOn, MessageParseError> {
 pub struct NoteOff {
     channel: MidiChannel,
     note: MidiNote,
-    velocity: PressVelocity,
+    vel: PressVelocity,
 }
 
 impl NoteOff {
@@ -110,10 +113,10 @@ impl NoteOff {
         NoteOff { note, ..self }
     }
     pub const fn with_vel(self, vel: PressVelocity) -> Self {
-        NoteOff {
-            velocity: vel,
-            ..self
-        }
+        NoteOff { vel, ..self }
+    }
+    pub const fn new(channel: MidiChannel, note: MidiNote, vel: PressVelocity) -> Self {
+        Self { channel, note, vel }
     }
     pub const fn channel(&self) -> MidiChannel {
         self.channel
@@ -122,7 +125,7 @@ impl NoteOff {
         self.note
     }
     pub const fn vel(&self) -> PressVelocity {
-        self.velocity
+        self.vel
     }
 }
 
@@ -132,7 +135,7 @@ pub const fn parse_noteoff(bytes: [u8; 3]) -> Result<NoteOff, MessageParseError>
     Ok(NoteOff {
         channel: payload.channel,
         note: payload.note,
-        velocity: payload.velocity,
+        vel: payload.velocity,
     })
 }
 

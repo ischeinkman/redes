@@ -62,7 +62,22 @@ impl PressVelocity {
 pub struct MidiChannel {
     raw: u8,
 }
+
+const fn make_all_channels() -> [MidiChannel ; 16] {
+    let mut retvl = [MidiChannel {raw : 0} ; 16];
+    let mut idx = 0;
+    while idx < retvl.len() {
+        retvl[idx] = MidiChannel {raw : idx as u8};
+        idx += 1;
+    }
+    retvl
+}
+
 impl MidiChannel {
+    pub const fn all() -> &'static [MidiChannel] {
+        const ALL : [MidiChannel ; 16] = make_all_channels();
+        &ALL
+    }
     pub const fn as_u8(&self) -> u8 {
         self.raw
     }
@@ -125,7 +140,21 @@ pub struct MidiNote {
     raw: u8,
 }
 
+const fn all_notes() -> [MidiNote; 128] {
+    let mut retvl = [MidiNote { raw: 0 }; 128];
+    let mut idx = 0;
+    while (idx as usize) < retvl.len() {
+        retvl[idx as usize] = MidiNote { raw: idx };
+        idx += 1;
+    }
+    retvl
+}
+
 impl MidiNote {
+    pub fn all() -> &'static [MidiNote] {
+        const RET: [MidiNote; 128] = all_notes();
+        &RET
+    }
     pub const fn wrapping_add(self, steps: i8) -> Self {
         let inner = self.raw as i16;
         let mut new = inner + (steps as i16);
@@ -238,6 +267,32 @@ pub enum MidiMessage {
     NoteOn(NoteOn),
     NoteOff(NoteOff),
     Other(RawMessage),
+}
+
+impl MidiMessage {
+    pub const fn as_raw(self) -> RawMessage {
+        match self {
+            MidiMessage::Other(k) => k, 
+            MidiMessage::NoteOff(data) => RawMessage {bytes : data.as_bytes()},
+            MidiMessage::NoteOn(data) => RawMessage {bytes : data.as_bytes()},
+        }
+    }
+}
+impl From<RawMessage> for MidiMessage {
+    fn from(inner : RawMessage) -> Self {
+        MidiMessage::Other(inner)
+    }
+}
+impl From<NoteOff> for MidiMessage {
+    fn from(inner : NoteOff) -> Self {
+        MidiMessage::NoteOff(inner)
+    }
+}
+
+impl From<NoteOn> for MidiMessage {
+    fn from(inner : NoteOn) -> Self {
+        MidiMessage::NoteOn(inner)
+    }
 }
 
 pub const fn parse_midimessage(bytes: [u8; 3]) -> Result<MidiMessage, MessageParseError> {
