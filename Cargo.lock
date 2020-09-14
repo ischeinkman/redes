@@ -8,9 +8,9 @@ checksum = "cf1de2fe8c75bc145a2f577add951f8134889b4795d47466a54a5c846d691693"
 
 [[package]]
 name = "jack"
-version = "0.6.3"
+version = "0.6.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c8a6c2112c3367e17819f6b7dc7af2516f2a458343c4a6f34938bd8b697f53a0"
+checksum = "7c1871c91fa65aa328f3bedbaa54a6e5d1de009264684c153eb708ba933aa6f5"
 dependencies = [
  "bitflags",
  "jack-sys",
