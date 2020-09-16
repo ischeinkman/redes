@@ -1,14 +1,14 @@
-use jack::{Client, ClientOptions,  MidiOut, ProcessScope};
-use std::convert::{ TryInto};
+use jack::{Client, ClientOptions, MidiOut, ProcessScope};
 use std::fmt::{self, Formatter, LowerHex, UpperHex};
 use std::time::Duration;
+
 mod midi;
 mod model;
-mod utils;
-use midi::{ MidiChannel, MidiMessage, MidiNote, NoteOff, NoteOn, PressVelocity};
-pub use utils::*;
 mod track;
+mod utils;
+use midi::MidiNote;
 use track::*;
+pub use utils::*;
 
 #[cfg(feature = "rt-alloc-panic")]
 mod malloc;
@@ -75,147 +75,9 @@ impl NoteState {
     }
 }
 
-
 fn main() {
-    let track = [
-        TrackEvent::SetBpm(BpmInfo::default()),
-        /* Block start: 1 */
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(60).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(63).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(67).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(70).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(60).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(63).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(67).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(70).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::Wait(WaitTime::BeatTicks(32u16.try_into().unwrap())),
-        TrackEvent::Jump {
-            target: 1,
-            count: Some(3u16.try_into().unwrap()),
-        },
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(60).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(63).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(67).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(70).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        /* Block start: 15 */
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(59).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(62).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(66).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(69).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(59).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(62).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(66).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(69).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::Wait(WaitTime::BeatTicks(32u16.try_into().unwrap())),
-        TrackEvent::Jump {
-            target: 15,
-            count: Some(3u16.try_into().unwrap()),
-        },
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(59).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(62).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(66).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
-            MidiChannel::all()[0],
-            MidiNote::from_raw(69).unwrap(),
-            PressVelocity::from_raw(90).unwrap(),
-        ))),
-        TrackEvent::Jump {
-            target: 0,
-            count: None,
-        },
-    ];
+    let track = Vec::new();
+
     let mut cursor = TrackCursor::new(track);
 
     #[cfg(feature = "rt-alloc-panic")]
@@ -274,7 +136,6 @@ fn main() {
         std::thread::sleep(Duration::from_millis(1000));
     }
 }
-
 
 pub struct ByteWrapper<S: AsRef<[u8]> + ?Sized> {
     inner: S,
