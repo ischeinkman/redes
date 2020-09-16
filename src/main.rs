@@ -1,13 +1,14 @@
-use jack::{Client, ClientOptions, MidiIn, MidiOut, ProcessScope, RawMidi};
+use jack::{Client, ClientOptions,  MidiOut, ProcessScope};
+use std::convert::{ TryInto};
 use std::fmt::{self, Formatter, LowerHex, UpperHex};
-use std::sync::mpsc;
 use std::time::Duration;
 mod midi;
 mod model;
-use model::NoteKey;
 mod utils;
-use midi::{parse_midimessage, MidiChannel, MidiMessage, MidiNote, NoteOff, NoteOn, PressVelocity};
+use midi::{ MidiChannel, MidiMessage, MidiNote, NoteOff, NoteOn, PressVelocity};
 pub use utils::*;
+mod track;
+use track::*;
 
 #[cfg(feature = "rt-alloc-panic")]
 mod malloc;
@@ -74,22 +75,148 @@ impl NoteState {
     }
 }
 
-const SECONDS_PER_MIN: u64 = 60;
-const MILLIS_PER_SECOND: u64 = 1000;
-const MICROS_PER_MILLI: u64 = 1000;
-const NANOS_PER_MICRO: u64 = 1000;
-
-const MILLIS_PER_MIN: u64 = MILLIS_PER_SECOND * SECONDS_PER_MIN;
-const MICROS_PER_MIN: u64 = MICROS_PER_MILLI * MILLIS_PER_MIN;
-const NANOS_PER_MIN: u64 = NANOS_PER_MICRO * MICROS_PER_MIN;
-
-const fn bpm_to_beat_time(bpm: u64) -> Duration {
-    let nanos = NANOS_PER_MIN / bpm;
-    Duration::from_nanos(nanos)
-}
 
 fn main() {
-    let beat_time = bpm_to_beat_time(120);
+    let track = [
+        TrackEvent::SetBpm(BpmInfo::default()),
+        /* Block start: 1 */
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(60).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(63).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(67).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(70).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(60).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(63).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(67).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(70).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::Wait(WaitTime::BeatTicks(32u16.try_into().unwrap())),
+        TrackEvent::Jump {
+            target: 1,
+            count: Some(3u16.try_into().unwrap()),
+        },
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(60).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(63).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(67).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(70).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        /* Block start: 15 */
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(59).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(62).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(66).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(69).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(59).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(62).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(66).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOn(NoteOn::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(69).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::Wait(WaitTime::BeatTicks(32u16.try_into().unwrap())),
+        TrackEvent::Jump {
+            target: 15,
+            count: Some(3u16.try_into().unwrap()),
+        },
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(59).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(62).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(66).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::SendMessage(MidiMessage::NoteOff(NoteOff::new(
+            MidiChannel::all()[0],
+            MidiNote::from_raw(69).unwrap(),
+            PressVelocity::from_raw(90).unwrap(),
+        ))),
+        TrackEvent::Jump {
+            target: 0,
+            count: None,
+        },
+    ];
+    let mut cursor = TrackCursor::new(track);
 
     #[cfg(feature = "rt-alloc-panic")]
     eprintln!("RT-ALLOC-PANIC was enabled: will panic if the realtime thread allocates.");
@@ -99,140 +226,55 @@ fn main() {
         .register_port("Midi Output 1", MidiOut::default())
         .unwrap();
 
-    let inp = client
-        .register_port("Midi Input 1", MidiIn::default())
-        .unwrap();
-    let mut state = NoteState::default();
-
-    let (send, recv) = mpsc::sync_channel(1024);
+    let mut start_usecs = None;
     let cb = move |client: &Client, ps: &ProcessScope| {
         #[cfg(feature = "rt-alloc-panic")]
         malloc::MYALLOC.set_rt();
         let mut outcon = out.writer(ps);
-        let mut new_state = state;
-        for rawdata in inp.iter(ps) {
-            let buff = rawdata.bytes;
-            let mut owned_buff = [0; 3];
-            let bufflen = buff.len();
-            let cplen = bufflen.min(owned_buff.len());
-            (&mut owned_buff).copy_from_slice(&buff[..cplen]);
-            let parsed = parse_midimessage(owned_buff);
-            match parsed {
-                Ok(midi::MidiMessage::NoteOn(data)) if data.channel() == MidiChannel::all()[0] => {
-                    new_state = new_state.with_press(data.note());
-                }
-                Ok(midi::MidiMessage::NoteOff(data)) if data.channel() == MidiChannel::all()[0] => {
-                    new_state = new_state.with_release(data.note());
-                }
-                Ok(_) => {
-                    outcon.write(&rawdata).unwrap();
-                }
-                _ => {}
-            }
-        }
-        let (cur_usecs, nxt_usecs) = ps
+
+        let (cur_frames, cur_usecs, nxt_usecs) = ps
             .cycle_times()
-            .map(|data| (data.current_usecs, data.next_usecs))
+            .map(|data| (data.current_frames, data.current_usecs, data.next_usecs))
             .unwrap_or_else(|_| {
                 let cur_frames = ps.last_frame_time();
                 let nxt_frames = cur_frames + ps.n_frames();
                 let cur_usecs = client.frames_to_time(cur_frames);
                 let nxt_usecs = client.frames_to_time(nxt_frames);
-                (cur_usecs, nxt_usecs)
+                (cur_frames, cur_usecs, nxt_usecs)
             });
-        let cur_beat = (cur_usecs as u128) / beat_time.as_micros();
-        let nxt_beat = (nxt_usecs as u128) / beat_time.as_micros();
 
-        let released = state.notes().filter(|n| !new_state.is_pressed(*n));
-        for released_note in released {
-            let beat_offset = cur_beat % 3;
-            let key = NoteKey::major(released_note.note());
-            let arped_class = key.nth((2 * beat_offset) as isize);
-            let mut arped = MidiNote::from_note_octave(arped_class, released_note.octave());
-            if arped < released_note {
-                arped = arped.wrapping_add(12);
-            }
-            let noteoff = NoteOff::new(
-                MidiChannel::all()[0],
-                arped,
-                PressVelocity::from_raw(0).unwrap(),
-            );
-            let msg = RawMidi {
-                time: 0,
-                bytes: &noteoff.as_bytes(),
+        let start_time = Duration::from_micros(*start_usecs.get_or_insert(cur_usecs));
+        let cur_time = Duration::from_micros(cur_usecs)
+            .checked_sub(start_time)
+            .unwrap_or_default();
+        let nxt_time = Duration::from_micros(nxt_usecs)
+            .checked_sub(start_time)
+            .unwrap_or_default();
+        for evt in cursor.events_in_range(cur_time, nxt_time) {
+            let (time, msg) = evt;
+            let sys_time = (time.as_micros() + start_time.as_micros()) as u64;
+            let sys_frames = client.time_to_frames(sys_time);
+            let frame_offset = sys_frames.saturating_sub(cur_frames);
+            let rawmsg = msg.as_raw();
+            let outdata = jack::RawMidi {
+                time: frame_offset,
+                bytes: rawmsg.bytes(),
             };
-            outcon.write(&msg).unwrap();
-            send.send(MidiMessage::from(noteoff)).unwrap();
-        }
-
-        if cur_beat >= nxt_beat {
-            #[cfg(feature = "rt-alloc-panic")]
-            malloc::MYALLOC.unset_rt();
-            state = new_state;
-            return jack::Control::Continue;
-        }
-
-        let mut touchmask = 0u128;
-        for base in new_state.notes() {
-            let key = NoteKey::major(base.note());
-
-            let prev_offset = cur_beat % 3;
-            let prev_class = key.nth((2 * prev_offset) as isize);
-            let mut prev_note = MidiNote::from_note_octave(prev_class, base.octave());
-            if prev_note < base {
-                prev_note = prev_note.wrapping_add(12);
-            }
-            let prev_mask = 1u128 << prev_note.as_u8();
-            if prev_mask & touchmask == 0 {
-                let prev_noteoff = NoteOff::new(
-                    MidiChannel::all()[0],
-                    prev_note,
-                    PressVelocity::from_raw(90).unwrap(),
-                );
-                let prev_time = 0; //TODO
-                let prev_msg = RawMidi {
-                    time: prev_time,
-                    bytes: &prev_noteoff.as_bytes(),
-                };
-                outcon.write(&prev_msg).unwrap();
-                send.send(prev_noteoff.into()).unwrap();
-            }
-
-            let nxt_offset = nxt_beat % 3;
-            let nxt_class = key.nth((2 * nxt_offset) as isize);
-            let mut nxt_note = MidiNote::from_note_octave(nxt_class, base.octave());
-            if nxt_note < base {
-                nxt_note = nxt_note.wrapping_add(12);
-            }
-            let nxt_mask = 1u128 << nxt_note.as_u8();
-            touchmask |= nxt_mask;
-            let nxt_noteon = NoteOn::new(
-                MidiChannel::all()[0],
-                nxt_note,
-                PressVelocity::from_raw(90).unwrap(),
-            );
-            let nxt_time = 0; //TODO
-            let nxt_msg = RawMidi {
-                time: nxt_time,
-                bytes: &nxt_noteon.as_bytes(),
-            };
-            outcon.write(&nxt_msg).unwrap();
-            send.send(nxt_noteon.into()).unwrap();
+            outcon.write(&outdata).unwrap();
         }
 
         #[cfg(feature = "rt-alloc-panic")]
         malloc::MYALLOC.unset_rt();
-        state = new_state;
         jack::Control::Continue
     };
-    let active_client = client
+    let _active_client = client
         .activate_async((), jack::ClosureProcessHandler::new(cb))
         .unwrap();
     loop {
-        let msg = recv.recv().unwrap();
-        println!("{} => {:?}", active_client.as_client().frame_time(), msg);
+        std::thread::sleep(Duration::from_millis(1000));
     }
 }
+
 
 pub struct ByteWrapper<S: AsRef<[u8]> + ?Sized> {
     inner: S,
