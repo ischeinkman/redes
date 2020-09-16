@@ -37,6 +37,7 @@ impl ThreadStatus {
 
 #[derive(Copy, Clone, Eq, PartialEq, Debug)]
 #[repr(u8)]
+#[allow(dead_code)]
 pub enum FailAction {
     Panic,
     Nothing,
@@ -67,7 +68,8 @@ impl DebugRtAllocator {
         RT_FLAG.with(|flag| flag.is_rt())
     }
 
-    pub fn set_action(&self, action : FailAction) {
+    #[allow(dead_code)]
+    pub fn set_action(&self, action: FailAction) {
         RT_FLAG.with(|flag| flag.set_action(action));
     }
 

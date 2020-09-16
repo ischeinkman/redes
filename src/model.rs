@@ -136,6 +136,7 @@ impl NoteKey {
         NoteKey { notes_with_root: 0 }
     }
 
+    #[allow(dead_code)]
     pub const fn major(root: NoteClass) -> Self {
         let mut retvl = Self::empty();
         let root_mask = (root.as_u8() as u16) << 12;
@@ -150,6 +151,7 @@ impl NoteKey {
         retvl
     }
 
+    #[allow(dead_code)]
     pub const fn minor(root: NoteClass) -> Self {
         let mut retvl = Self::major(root);
         retvl = retvl.without_note(root.shift(4)).with_note(root.shift(3));
@@ -158,25 +160,30 @@ impl NoteKey {
         retvl
     }
 
+    #[allow(dead_code)]
     pub const fn equivalent(&self, other: &NoteKey) -> bool {
         let self_notes = self.notes_with_root & NOTES_MASK;
         let other_notes = other.notes_with_root & NOTES_MASK;
         self_notes == other_notes
     }
 
+    #[allow(dead_code)]
     pub const fn root(&self) -> NoteClass {
         let raw_root = (self.notes_with_root & ROOT_MASK) >> 12;
         NoteClass::from_u8(raw_root as u8)
     }
+    #[allow(dead_code)]
     pub const fn contains(&self, note: NoteClass) -> bool {
         let raw = note.as_u8();
         let mask = 1 << raw;
         self.notes_with_root & mask != 0
     }
+    #[allow(dead_code)]
     pub const fn len(&self) -> usize {
         let notes = self.notes_with_root & NOTES_MASK;
         notes.count_ones() as usize
     }
+    #[allow(dead_code)]
     pub const fn nth(&self, keystep: isize) -> NoteClass {
         let mapped_step = if keystep < 0 {
             self.len() as isize + (keystep % self.len() as isize)

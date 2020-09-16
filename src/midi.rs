@@ -63,11 +63,11 @@ pub struct MidiChannel {
     raw: u8,
 }
 
-const fn make_all_channels() -> [MidiChannel ; 16] {
-    let mut retvl = [MidiChannel {raw : 0} ; 16];
+const fn make_all_channels() -> [MidiChannel; 16] {
+    let mut retvl = [MidiChannel { raw: 0 }; 16];
     let mut idx = 0;
     while idx < retvl.len() {
-        retvl[idx] = MidiChannel {raw : idx as u8};
+        retvl[idx] = MidiChannel { raw: idx as u8 };
         idx += 1;
     }
     retvl
@@ -75,7 +75,7 @@ const fn make_all_channels() -> [MidiChannel ; 16] {
 
 impl MidiChannel {
     pub const fn all() -> &'static [MidiChannel] {
-        const ALL : [MidiChannel ; 16] = make_all_channels();
+        const ALL: [MidiChannel; 16] = make_all_channels();
         &ALL
     }
     pub const fn as_u8(&self) -> u8 {
@@ -106,6 +106,7 @@ impl RawMessage {
         retvl
     }
 
+    #[allow(dead_code)]
     pub const fn tag(&self) -> u8 {
         self.bytes[0] & 0xF0
     }
@@ -272,29 +273,34 @@ pub enum MidiMessage {
 impl MidiMessage {
     pub const fn as_raw(self) -> RawMessage {
         match self {
-            MidiMessage::Other(k) => k, 
-            MidiMessage::NoteOff(data) => RawMessage {bytes : data.as_bytes()},
-            MidiMessage::NoteOn(data) => RawMessage {bytes : data.as_bytes()},
+            MidiMessage::Other(k) => k,
+            MidiMessage::NoteOff(data) => RawMessage {
+                bytes: data.as_bytes(),
+            },
+            MidiMessage::NoteOn(data) => RawMessage {
+                bytes: data.as_bytes(),
+            },
         }
     }
 }
 impl From<RawMessage> for MidiMessage {
-    fn from(inner : RawMessage) -> Self {
+    fn from(inner: RawMessage) -> Self {
         MidiMessage::Other(inner)
     }
 }
 impl From<NoteOff> for MidiMessage {
-    fn from(inner : NoteOff) -> Self {
+    fn from(inner: NoteOff) -> Self {
         MidiMessage::NoteOff(inner)
     }
 }
 
 impl From<NoteOn> for MidiMessage {
-    fn from(inner : NoteOn) -> Self {
+    fn from(inner: NoteOn) -> Self {
         MidiMessage::NoteOn(inner)
     }
 }
 
+#[allow(dead_code)]
 pub const fn parse_midimessage(bytes: [u8; 3]) -> Result<MidiMessage, MessageParseError> {
     let noteon_res = parse_noteon(bytes);
     match noteon_res {

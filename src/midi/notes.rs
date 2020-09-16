@@ -10,6 +10,7 @@ enum NoteEventTag {
     Off = 0b1000_0000,
     On = 0b1001_0000,
 }
+
 const fn parse_tag_expected(
     byte: u8,
     expected: NoteEventTag,
@@ -61,17 +62,17 @@ impl NoteOn {
     pub const fn new(channel: MidiChannel, note: MidiNote, vel: PressVelocity) -> Self {
         Self { channel, note, vel }
     }
+    #[allow(dead_code)]
     pub const fn with_channel(self, channel: MidiChannel) -> Self {
         NoteOn { channel, ..self }
     }
+    #[allow(dead_code)]
     pub const fn with_note(self, note: MidiNote) -> Self {
         NoteOn { note, ..self }
     }
+    #[allow(dead_code)]
     pub const fn with_vel(self, vel: PressVelocity) -> Self {
-        NoteOn {
-            vel,
-            ..self
-        }
+        NoteOn { vel, ..self }
     }
     pub const fn channel(&self) -> MidiChannel {
         self.channel
@@ -106,12 +107,15 @@ impl NoteOff {
         NoteEventPayload::new(self.channel(), self.note(), self.vel())
             .as_bytes(NoteEventTag::Off as u8)
     }
+    #[allow(dead_code)]
     pub const fn with_channel(self, channel: MidiChannel) -> Self {
         NoteOff { channel, ..self }
     }
+    #[allow(dead_code)]
     pub const fn with_note(self, note: MidiNote) -> Self {
         NoteOff { note, ..self }
     }
+    #[allow(dead_code)]
     pub const fn with_vel(self, vel: PressVelocity) -> Self {
         NoteOff { vel, ..self }
     }
