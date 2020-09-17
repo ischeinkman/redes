@@ -81,6 +81,14 @@ impl MidiChannel {
     pub const fn as_u8(&self) -> u8 {
         self.raw
     }
+    pub const fn from_raw(raw: u8) -> Option<MidiChannel> {
+        let raw = raw as usize;
+        if raw >= Self::all().len() {
+            None
+        } else {
+            Some(Self::all()[raw])
+        }
+    }
 }
 
 #[derive(Debug, Hash, Eq, PartialEq, Copy, Clone)]

@@ -84,7 +84,6 @@ impl NoteClass {
             NoteClass::As => "A#",
             NoteClass::B => "B",
         }
-
     }
 }
 
@@ -94,6 +93,13 @@ impl NoteClass {}
 pub struct Octave(i8);
 
 impl Octave {
+    pub const fn from_raw(raw: i8) -> Option<Octave> {
+        if raw < -1 || raw > 9 {
+            None
+        } else {
+            Some(Octave(raw))
+        }
+    }
     pub const fn as_raw(&self) -> i8 {
         self.0
     }
