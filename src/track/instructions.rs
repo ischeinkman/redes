@@ -26,7 +26,6 @@ pub enum TrackEvent {
     /// Represents the end of the playback track. 
     /// If the VM reachs this instruction, it will not continue 
     /// past it at all. 
-    #[allow(dead_code)]
     End,
 }
 
@@ -58,11 +57,14 @@ const fn clamped_to_nonzerou16(raw: u128) -> NonZeroU16 {
 pub enum WaitTime {
 
     /// A wait period measured in clock time.
-    #[allow(dead_code)]
     Time(Duration),
+    
+    /// A wait period measured in beats.
+    Beats(NonZeroU16), 
 
     /// A wait period measured in beat "ticks".
     BeatTicks(NonZeroU16),
+
 }
 
 impl WaitTime {
@@ -78,12 +80,21 @@ impl WaitTime {
                 let ticks = self_nanos / nanos_per_tick;
                 clamped_to_nonzerou16(ticks)
             }
+            WaitTime::Beats(b) => {
+                let raw = b.get() * bpm_info.ticks_per_beat.get();
+                clamped_to_nonzerou16(raw as u128)
+            }
         }
     }
 
     /// Converts this waiting period to raw clock time using the provided BPM information.
     pub const fn as_duration(&self, bpm_info: BpmInfo) -> Duration {
         match *self {
+            WaitTime::Beats(b) => {
+                let ticks = (bpm_info.ticks_per_beat.get() as u64) * (b.get() as u64);
+                let nanos = (bpm_info.tick_duration().as_nanos() as u64) * ticks;
+                Duration::from_nanos(nanos)
+            }
             WaitTime::Time(dur) => dur,
             WaitTime::BeatTicks(ticks) => Duration::from_nanos(
                 (bpm_info.tick_duration().as_nanos() as u64) * (ticks.get() as u64),
