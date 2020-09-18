@@ -1,9 +1,15 @@
 use jack::{Client, ClientOptions, MidiOut, ProcessScope};
+use std::collections::HashMap;
+use std::env::args;
 use std::fmt::{self, Formatter, LowerHex, UpperHex};
+use std::fs::OpenOptions;
+use std::io::Read;
 use std::time::Duration;
 
 mod midi;
 mod model;
+mod songlang;
+use songlang::{parse_file, AsmCommand, LangItem};
 mod track;
 mod utils;
 use midi::MidiNote;
@@ -76,7 +82,75 @@ impl NoteState {
 }
 
 fn main() {
-    let track = Vec::new();
+    let parsed = args().nth(1).map(|path| {
+        let mut file = OpenOptions::new().read(true).open(path).unwrap();
+        let mut input = String::new();
+        file.read_to_string(&mut input).unwrap();
+
+        let (_, res) = parse_file(&input)
+            .map_err(|e| match e {
+                nom::Err::Error(e) | nom::Err::Failure(e) => format!(
+                    "Parse error: {}\n\nRaw:\n{:?}",
+                    nom::error::convert_error(&input, e.clone()),
+                    e
+                ),
+                nom::Err::Incomplete(ic) => format!("Incomplete: {:?}", ic),
+            })
+            .map_err(|e| {
+                eprintln!("ERROR: {}\n\n\n===========", e);
+                e
+            })
+            .unwrap();
+        res
+    });
+    let parsed = parsed.unwrap_or_default();
+    for (idx, instr) in parsed.iter().enumerate() {
+        println!("{:02} : {:?}", idx, instr);
+    }
+    let mut track = Vec::new();
+    let mut labels = HashMap::new();
+    let mut jumps_to_labels = HashMap::new();
+    for instr in parsed.iter() {
+        match instr {
+            LangItem::Asm(AsmCommand::Wait(dur)) => {
+                let evt = TrackEvent::Wait(*dur);
+                track.push(evt);
+            }
+            LangItem::Asm(AsmCommand::Label(name)) => {
+                assert!(labels.insert(name, track.len()).is_none());
+            }
+            LangItem::Asm(AsmCommand::Jump { label, count }) => {
+                let cmd = TrackEvent::Jump {
+                    target: 0,
+                    count: *count,
+                };
+                jumps_to_labels.insert(track.len(), label);
+                track.push(cmd);
+            }
+            LangItem::Asm(AsmCommand::SetBpm(bpm)) => {
+                let cmd = TrackEvent::SetBpm(*bpm);
+                track.push(cmd);
+            }
+            LangItem::Asm(AsmCommand::Send(msg)) => {
+                let cmd = TrackEvent::SendMessage(*msg);
+                track.push(cmd);
+            }
+            other => {
+                todo!("Instr {:?} not yet implemented.", other);
+            }
+        }
+    }
+    track.push(TrackEvent::End);
+
+    for (idx, label) in jumps_to_labels {
+        let actual_target = labels.get(label).cloned().unwrap();
+        if let Some(TrackEvent::Jump { ref mut target, .. }) = track.get_mut(idx) {
+            *target = actual_target;
+        } else {
+            panic!("Error in label assignments; had mapping of {} => {}, but the event at IDX {} is {:?}.", idx, label, 
+            idx, track.get(idx));
+        }
+    }
 
     let mut cursor = TrackCursor::new(track);
 

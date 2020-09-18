@@ -57,13 +57,13 @@ const fn clamped_to_nonzerou16(raw: u128) -> NonZeroU16 {
 pub enum WaitTime {
 
     /// A wait period measured in clock time.
-    Time(Duration),
+    Clock(Duration),
     
     /// A wait period measured in beats.
     Beats(NonZeroU16), 
 
     /// A wait period measured in beat "ticks".
-    BeatTicks(NonZeroU16),
+    Ticks(NonZeroU16),
 
 }
 
@@ -73,8 +73,8 @@ impl WaitTime {
     #[allow(dead_code)]
     pub const fn as_ticks(&self, bpm_info: BpmInfo) -> NonZeroU16 {
         match *self {
-            WaitTime::BeatTicks(ticks) => ticks,
-            WaitTime::Time(dur) => {
+            WaitTime::Ticks(ticks) => ticks,
+            WaitTime::Clock(dur) => {
                 let nanos_per_tick = bpm_info.tick_duration().as_nanos();
                 let self_nanos = dur.as_nanos();
                 let ticks = self_nanos / nanos_per_tick;
@@ -95,8 +95,8 @@ impl WaitTime {
                 let nanos = (bpm_info.tick_duration().as_nanos() as u64) * ticks;
                 Duration::from_nanos(nanos)
             }
-            WaitTime::Time(dur) => dur,
-            WaitTime::BeatTicks(ticks) => Duration::from_nanos(
+            WaitTime::Clock(dur) => dur,
+            WaitTime::Ticks(ticks) => Duration::from_nanos(
                 (bpm_info.tick_duration().as_nanos() as u64) * (ticks.get() as u64),
             ),
         }

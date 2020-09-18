@@ -1,0 +1,42 @@
+SETBPM 120, 32
+
+LABEL head:
+    LABEL major:
+        SEND NOTEON 1, d3, 90
+        SEND NOTEON 1, d4, 90
+        SEND NOTEON 1, fs4, 90
+        SEND NOTEON 1, a4, 90
+        SEND NOTEON 1, cs5, 90
+
+        WAIT 16 ticks 
+        
+        SEND NOTEOFF 1, d4, 0
+        SEND NOTEOFF 1, fs4, 0
+        SEND NOTEOFF 1, a4, 0
+        SEND NOTEOFF 1, cs5, 0
+
+        WAIT 16 ticks 
+
+        SEND NOTEOFF 1, d3, 0
+
+        JUMP major 3
+
+
+    LABEL minor:
+        SEND NOTEON 1, b2, 90
+        SEND NOTEON 1, b3, 90
+        SEND NOTEON 1, d4, 90
+        SEND NOTEON 1, fs4, 90
+        SEND NOTEON 1, a4, 90
+
+        WAIT 32 ticks
+
+        SEND NOTEOFF 1, b2, 0
+        SEND NOTEOFF 1, b3, 0
+        SEND NOTEOFF 1, d4, 0
+        SEND NOTEOFF 1, fs4, 0
+        SEND NOTEOFF 1, a4, 0
+
+        JUMP minor 3
+
+    JUMP head
