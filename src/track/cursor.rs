@@ -1,10 +1,9 @@
-use super::{BpmInfo, EventTrack, TrackEvent};
+use super::{BpmInfo, EventTrack, OutputPort, TrackEvent};
 use crate::midi::MidiMessage;
 use std::time::Duration;
 
-
-/// A cursor along an `EventTrack`. 
-/// Allows for stepping through the track and acts as a sort of 
+/// A cursor along an `EventTrack`.
+/// Allows for stepping through the track and acts as a sort of
 /// "register list" for an event track "VM".
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub struct TrackCursor<TrackData: EventTrack> {
@@ -18,18 +17,22 @@ pub struct TrackCursor<TrackData: EventTrack> {
 /// Possible signal values that can be returned from `step()`.
 #[derive(Debug, Eq, PartialEq, Hash)]
 enum StepOutput {
-    /// Playback has ended; all subsequent calls to `step()` 
+    /// Playback has ended; all subsequent calls to `step()`
     /// will always return `Ok(StepOutput::end)`.
     End,
-    /// No event has been emitted during this call to `step()`, 
+    /// No event has been emitted during this call to `step()`,
     /// but more may be still emitted in subsequent calls.
     Continue,
-    /// The current `step()` call has emittd a MIDI event; 
+    /// The current `step()` call has emittd a MIDI event;
     /// implies that playback will continue.
-    Message { time: Duration, msg: MidiMessage },
+    Message {
+        time: Duration,
+        port: OutputPort,
+        msg: MidiMessage,
+    },
 }
 
-/// Errors that may occur when calling `step()`. 
+/// Errors that may occur when calling `step()`.
 #[derive(Debug)]
 enum StepError {
     #[allow(dead_code)]
@@ -58,12 +61,12 @@ impl<T: EventTrack> TrackCursor<T> {
     /// Both `start` and `end` are measured since the start of
     /// track playback. The time period includes `start`, but does
     /// not include `end`. Events will be returned with the timestamp
-    /// of the event, again measured since the start of track playback. 
+    /// of the event, again measured since the start of track playback.
     pub fn events_in_range<'a>(
         &'a mut self,
         start: Duration,
         end: Duration,
-    ) -> impl Iterator<Item = (Duration, MidiMessage)> + 'a {
+    ) -> impl Iterator<Item = (Duration, OutputPort, MidiMessage)> + 'a {
         while self.cur_time < start {
             if self.step().unwrap() == StepOutput::End {
                 break;
@@ -77,8 +80,8 @@ impl<T: EventTrack> TrackCursor<T> {
                 StepOutput::End => {
                     return None;
                 }
-                StepOutput::Message { time, msg } => {
-                    return Some((time, msg));
+                StepOutput::Message { time, port, msg } => {
+                    return Some((time, port, msg));
                 }
                 StepOutput::Continue => {}
             }
@@ -93,20 +96,21 @@ impl<T: EventTrack> TrackCursor<T> {
             .get(self.instruction_pointer)
             .ok_or(StepError::BadInstrPointer(self.instruction_pointer))?;
         match next_evt {
-            // Note: **NOT** stepping the instruction pointer 
+            // Note: **NOT** stepping the instruction pointer
             // to gurantee that all following calls to `step()` also produce
-            // `StepOutput::End`. 
+            // `StepOutput::End`.
             TrackEvent::End => Ok(StepOutput::End),
             TrackEvent::SetBpm(new_info) => {
                 self.cur_bpm = new_info;
                 self.instruction_pointer += 1;
                 Ok(StepOutput::Continue)
             }
-            TrackEvent::SendMessage(msg) => {
+            TrackEvent::SendMessage { message, port } => {
                 self.instruction_pointer += 1;
                 Ok(StepOutput::Message {
                     time: self.cur_time,
-                    msg,
+                    port,
+                    msg: message,
                 })
             }
             TrackEvent::Wait(time) => {

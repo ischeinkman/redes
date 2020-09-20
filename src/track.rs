@@ -2,7 +2,7 @@ mod cursor;
 pub use cursor::*;
 
 mod instructions;
-pub use instructions::{BpmInfo, TrackEvent, WaitTime};
+pub use instructions::{BpmInfo, TrackEvent, WaitTime, OutputPort};
 
 /// A MIDI event track that represents a constant, static performance that takes no input
 /// data, represented as a fixed list of instructions.
@@ -28,6 +28,25 @@ pub trait EventTrack {
                 }
             })
             .collect()
+    }
+
+    /// Collects all "ports" that this track sends MIDI messages to. 
+    /// These ports are separate from Midi "channels", and instead 
+    /// map to framework-level objects, EG Jack's MIDI Output ports.
+    fn output_ports(&self) -> Vec<OutputPort> {
+       let mut all_ports : Vec<_> = (0..usize::max_value())
+            .map(|idx| (idx, self.get(idx)))
+            .take_while(|(_, res)| res.is_some())
+            .filter_map(|(_, evt)| {
+                match evt {
+                    Some(TrackEvent::SendMessage{port, ..}) => Some(port), 
+                    _ => None
+                }
+            })
+            .collect();
+        all_ports.sort();
+        all_ports.dedup();
+        all_ports
     }
 }
 

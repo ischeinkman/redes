@@ -5,11 +5,15 @@ use std::fmt::{self, Formatter, LowerHex, UpperHex};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::time::Duration;
+use thiserror::Error;
+
+use bumpalo::collections::Vec as BumpVec;
+use bumpalo::Bump;
 
 mod midi;
 mod model;
 mod songlang;
-use songlang::{parse_file, AsmCommand, LangItem};
+use songlang::{parse_file, AsmCommand, LangItem, OutputLabel};
 mod track;
 mod utils;
 use midi::MidiNote;
@@ -43,17 +47,17 @@ impl NoteState {
     pub const fn is_pressed(&self, note: MidiNote) -> bool {
         self.data & mask(note) != 0
     }
-    pub const fn with_press(mut self, note: MidiNote) -> NoteState {
+    pub const fn with_press(mut self, note: MidiNote) -> Self {
         self.data |= mask(note);
         self
     }
-    pub const fn with_release(mut self, note: MidiNote) -> NoteState {
+    pub const fn with_release(mut self, note: MidiNote) -> Self {
         let press_mask = mask(note);
         let release_mask = !press_mask;
         self.data &= release_mask;
         self
     }
-    pub const fn with_toggled(mut self, note: MidiNote) -> NoteState {
+    pub const fn with_toggled(mut self, note: MidiNote) -> Self {
         let mask = mask(note);
         self.data ^= mask;
         self
@@ -66,7 +70,7 @@ impl NoteState {
 
     pub fn difference<'a>(
         &'a self,
-        other: &'a NoteState,
+        other: &'a Self,
     ) -> impl Iterator<Item = (MidiNote, DifferenceSide)> + 'a {
         (0..128)
             .filter_map(MidiNote::from_raw)
@@ -79,6 +83,14 @@ impl NoteState {
                 }
             })
     }
+}
+
+#[derive(Debug, Error)]
+pub enum MyError {
+    #[error(transparent)]
+    Jack(#[from] jack::Error),
+    #[error("Could not send message to Port ID {0:?}: Not Found.")]
+    InvalidPortId(OutputPort),
 }
 
 fn main() {
@@ -110,6 +122,9 @@ fn main() {
     let mut track = Vec::new();
     let mut labels = HashMap::new();
     let mut jumps_to_labels = HashMap::new();
+
+    let mut outputs = HashMap::<Option<OutputLabel>, OutputPort>::new();
+
     for instr in parsed.iter() {
         match instr {
             LangItem::Asm(AsmCommand::Wait(dur)) => {
@@ -131,8 +146,15 @@ fn main() {
                 let cmd = TrackEvent::SetBpm(*bpm);
                 track.push(cmd);
             }
-            LangItem::Asm(AsmCommand::Send(msg)) => {
-                let cmd = TrackEvent::SendMessage(*msg);
+            LangItem::Asm(AsmCommand::Send { port, message }) => {
+                if !outputs.contains_key(&port) {
+                    outputs.insert(port.clone(), outputs.len().into());
+                }
+                let port_id = outputs[&port];
+                let cmd = TrackEvent::SendMessage {
+                    message: *message,
+                    port: port_id,
+                };
                 track.push(cmd);
             }
             other => {
@@ -158,16 +180,37 @@ fn main() {
     eprintln!("RT-ALLOC-PANIC was enabled: will panic if the realtime thread allocates.");
 
     let (client, _status) = Client::new("Midi Test 1", ClientOptions::NO_START_SERVER).unwrap();
-    let mut out = client
-        .register_port("Midi Output 1", MidiOut::default())
-        .unwrap();
+
+    let mut outs = HashMap::new();
+    for (label, id) in outputs {
+        let label = label.as_ref().map(|lbl| lbl.as_ref()).unwrap_or(":1");
+        let port = client.register_port(label, MidiOut::default()).unwrap();
+        outs.insert(id, port);
+    }
 
     let mut start_usecs = None;
+
+    // Necessary to avoid dynamic symbol resolution in the hotloop.
+    // Safe-ish since while we technically do not actually verify safety variants/invariants
+    // aside from the fact that the client pointer is alive (IE we verify nothing about the 
+    // frame time, client state aside from liveness, etc), we are really only resolving a dynamic
+    // symbol and discarding the result. 
+    unsafe {
+        let ps = ProcessScope::from_raw(client.frame_time(), client.raw());
+        let _ = ps.cycle_times();
+    }
+
+    const BYTES_PADDING: usize = 0;
+    const ELM_PADDING: usize = 2;
+    let elm_size = std::mem::size_of::<(OutputPort, jack::MidiWriter<'static>)>();
+    let allocation_size = (outs.len() + ELM_PADDING) * elm_size + BYTES_PADDING;
+    let mut writer_allocator = Bump::with_capacity(allocation_size);
+
     let cb = move |client: &Client, ps: &ProcessScope| {
         #[cfg(feature = "rt-alloc-panic")]
         malloc::MYALLOC.set_rt();
-        let mut outcon = out.writer(ps);
-
+        let writer_iter = outs.iter_mut().map(|(id, port)| (*id, port.writer(ps)));
+        let mut writers = BumpVec::from_iter_in(writer_iter, &writer_allocator);
         let (cur_frames, cur_usecs, nxt_usecs) = ps
             .cycle_times()
             .map(|data| (data.current_frames, data.current_usecs, data.next_usecs))
@@ -187,7 +230,7 @@ fn main() {
             .checked_sub(start_time)
             .unwrap_or_default();
         for evt in cursor.events_in_range(cur_time, nxt_time) {
-            let (time, msg) = evt;
+            let (time, port, msg) = evt;
             let sys_time = (time.as_micros() + start_time.as_micros()) as u64;
             let sys_frames = client.time_to_frames(sys_time);
             let frame_offset = sys_frames.saturating_sub(cur_frames);
@@ -196,11 +239,32 @@ fn main() {
                 time: frame_offset,
                 bytes: rawmsg.bytes(),
             };
-            outcon.write(&outdata).unwrap();
+            let outcon = writers
+                .iter_mut()
+                .find(|(id, _)| id == &port)
+                .map(|(_, writer)| writer)
+                .ok_or_else(|| MyError::InvalidPortId(port))
+                .unwrap();
+            let write_res = outcon.write(&outdata).map_err(MyError::Jack);
+            match write_res {
+                Ok(_) => {}
+                Err(MyError::Jack(jack::Error::NotEnoughSpace)) => {
+                    #[cfg(feature = "rt-alloc-panic")]
+                    malloc::MYALLOC.unset_rt();
+                    todo!("Handle a backlog.");
+                }
+                Err(_) => {
+                    #[cfg(feature = "rt-alloc-panic")]
+                    malloc::MYALLOC.unset_rt();
+                    write_res.unwrap();
+                }
+            }
         }
-
+        drop(writers);
+        writer_allocator.reset();
         #[cfg(feature = "rt-alloc-panic")]
         malloc::MYALLOC.unset_rt();
+
         jack::Control::Continue
     };
     let _active_client = client

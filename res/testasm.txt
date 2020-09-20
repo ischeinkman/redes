@@ -2,7 +2,7 @@ SETBPM 120, 32
 
 LABEL head:
     LABEL major:
-        SEND NOTEON 1, d3, 90
+        SEND NOTEON 1, d3, 90, OUTPUT = bass
         SEND NOTEON 1, d4, 90
         SEND NOTEON 1, fs4, 90
         SEND NOTEON 1, a4, 90
@@ -17,13 +17,13 @@ LABEL head:
 
         WAIT 16 ticks 
 
-        SEND NOTEOFF 1, d3, 0
+        SEND NOTEOFF 1, d3, 0, OUTPUT = bass
 
         JUMP major 3
 
 
     LABEL minor:
-        SEND NOTEON 1, b2, 90
+        SEND NOTEON 1, b2, 90, OUTPUT = bass
         SEND NOTEON 1, b3, 90
         SEND NOTEON 1, d4, 90
         SEND NOTEON 1, fs4, 90
@@ -31,7 +31,7 @@ LABEL head:
 
         WAIT 32 ticks
 
-        SEND NOTEOFF 1, b2, 0
+        SEND NOTEOFF 1, b2, 0, OUTPUT = bass
         SEND NOTEOFF 1, b3, 0
         SEND NOTEOFF 1, d4, 0
         SEND NOTEOFF 1, fs4, 0

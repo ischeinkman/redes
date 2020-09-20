@@ -7,7 +7,10 @@ use std::num::NonZeroU16;
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum AsmCommand {
     Wait(WaitTime),
-    Send(MidiMessage),
+    Send {
+        message: MidiMessage,
+        port: Option<OutputLabel>,
+    },
     Jump {
         label: String,
         count: Option<NonZeroU16>,
@@ -16,6 +19,22 @@ pub enum AsmCommand {
     Label(String),
 }
 
+#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+pub struct OutputLabel(String);
+
+impl From<String> for OutputLabel {
+    fn from(inner : String) -> Self {
+        OutputLabel(inner)   
+    }
+}
+
+impl AsRef<str> for OutputLabel {
+    fn as_ref(&self) -> &str {
+        &self.0
+    }
+}
+
+#[allow(unused)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum LangItem {
     Loop {
@@ -27,6 +46,7 @@ pub enum LangItem {
     Asm(AsmCommand),
 }
 
+#[allow(unused)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum PressModifier {
     Velocity(PressVelocity),
@@ -48,6 +68,7 @@ pub struct ChordPress {
     modifiers: Vec<PressModifier>,
 }
 
+#[allow(unused)]
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum ChordKind {
     Raw,
@@ -58,6 +79,7 @@ pub enum ChordKind {
     Minor7,
 }
 
+#[allow(unused)]
 #[derive(Debug, Clone, Eq, PartialEq, Hash)]
 pub enum SongAttribute {
     Signature {

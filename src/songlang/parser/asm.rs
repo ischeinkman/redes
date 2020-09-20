@@ -14,7 +14,7 @@ use nom::{
 use super::{
     nonzerou16, parse_channel, parse_notepitch, parse_rawduration, parse_velocity, ParseResult,
 };
-use crate::songlang::ast::AsmCommand;
+use crate::songlang::ast::{AsmCommand, OutputLabel};
 
 mod utils {
     use super::*;
@@ -77,6 +77,24 @@ mod midimessages {
             map(parse_noteon, MidiMessage::NoteOn),
         ))(input)
     }
+
+    pub fn parse_outputlabel(input: &str) -> ParseResult<Option<OutputLabel>> {
+        let success_parser = |input| {
+            let (input, _) = consume_commalist_seperator(input)?;
+            let (input, _) = tag_no_case("output")(input)?;
+            let (input, _) = space0(input)?;
+            let (input, _) = tag_no_case("=")(input)?;
+            let (input, _) = space0(input)?;
+            let (input, name) = alpha1(input)?;
+            let res = Some(OutputLabel::from(name.to_owned()));
+            Ok((input, res))
+        };
+        let fail_parser = |input| {
+            let (input, _) = space0(input)?;
+            Ok((input, None))
+        };
+        alt((success_parser, fail_parser))(input)
+    }
 }
 use midimessages::*;
 
@@ -124,8 +142,10 @@ fn parse_label(input: &str) -> ParseResult<AsmCommand> {
 fn parse_sendmessage(input: &str) -> ParseResult<AsmCommand> {
     let (input, _) = tag_no_case("SEND")(input)?;
     let (input, _) = space1(input)?;
-    let (input, msg) = parse_midimsg(input)?;
-    Ok((input, AsmCommand::Send(msg)))
+    let (input, message) = parse_midimsg(input)?;
+    let (input, _) = space0(input)?;
+    let (input, port) = parse_outputlabel(input)?;
+    Ok((input, AsmCommand::Send { message, port }))
 }
 
 fn parse_wait(input: &str) -> ParseResult<AsmCommand> {

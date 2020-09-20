@@ -7,7 +7,10 @@ use std::time::Duration;
 #[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
 pub enum TrackEvent {
     /// Outputs a `MidiMessage` along the output port.
-    SendMessage(MidiMessage),
+    SendMessage{
+        message : MidiMessage,
+        port : OutputPort,
+    },
     /// Moves the internal clock forward by a constant
     /// time / number of beat ticks.
     Wait(WaitTime),
@@ -153,6 +156,21 @@ impl Default for BpmInfo {
         BpmInfo {
             beats_per_minute: NonZeroU16::new(120).unwrap(),
             ticks_per_beat: NonZeroU16::new(32).unwrap(),
+        }
+    }
+}
+
+
+
+#[derive(Debug, Eq, PartialEq, Copy, Clone, Hash, Ord, PartialOrd)]
+pub struct OutputPort {
+    idx : u128, 
+}
+
+impl From<usize> for OutputPort {
+    fn from(inner : usize) -> Self {
+        OutputPort {
+            idx : inner as u128
         }
     }
 }
