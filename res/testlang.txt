@@ -1,0 +1,8 @@
+loop {
+    loop 4 {
+        play d3 for 1 beat vel=100 on output "bass", d4M7 for 16 ticks vel=85
+    }
+    loop 4 {
+        play for 1 beat b2 vel=85 on output "bass", b3m7 vel = 100
+    }
+}

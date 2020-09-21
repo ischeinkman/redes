@@ -1,8 +1,16 @@
 use super::ast::*;
 use nom::{
-    branch::alt, bytes::complete::tag, character::complete::multispace0,
-    character::complete::multispace1, character::complete::space0, character::complete::space1,
-    combinator::map, error::context, multi::many0, sequence::delimited,
+    branch::alt,
+    bytes::complete::tag,
+    character::complete::multispace0,
+    character::complete::multispace1,
+    character::complete::space0,
+    character::complete::space1,
+    combinator::map,
+    error::context,
+    multi::{many0, separated_list},
+    sequence::delimited,
+    sequence::{preceded, terminated},
 };
 
 use std::num::NonZeroU16;
@@ -16,30 +24,43 @@ pub use utils::*;
 mod values;
 pub use values::*;
 
+mod playcmd;
+pub use playcmd::*;
+
 pub type ParseError<'a> = nom::error::VerboseError<&'a str>;
 
 pub type ParseResult<'a, T> = nom::IResult<&'a str, T, ParseError<'a>>;
 
 pub fn parse_file(input: &str) -> ParseResult<Vec<LangItem>> {
-    let lineparser = context(
-        "Single Expr Parser",
-        delimited(multispace0, parse_expr, alt((multispace1, eof))),
-    );
-    let (input, res) = many0(lineparser)(input)?;
+    let (input, _) = multispace0(input)?;
+    let (input, res) = context(
+        "File root command parser",
+        separated_list(multispace1, parse_expr),
+    )(input)?;
     Ok((input, res))
 }
 
 pub fn parse_expr(input: &str) -> ParseResult<LangItem> {
-    let rawres = nom::error::context(
+    context(
         "Songlang Expression",
-        alt((parse_loop, map(parse_asm_command, LangItem::Asm))),
-    )(input);
-    let (input, res) = rawres?;
-    Ok((input, res))
+        alt((
+            parse_loop,
+            map(parse_pressline, LangItem::NotePress),
+            map(parse_asm_command, LangItem::Asm),
+        )),
+    )(input)
 }
 
 pub fn parse_block(input: &str) -> ParseResult<Vec<LangItem>> {
-    delimited(tag("{"), many0(parse_expr), tag("}"))(input)
+    let lines_parser = context(
+        "Sub-block lines parser",
+        separated_list(multispace1, parse_expr),
+    );
+    delimited(
+        terminated(tag("{"), multispace0),
+        lines_parser,
+        preceded(multispace0, tag("}")),
+    )(input)
 }
 
 pub fn parse_loop(input: &str) -> ParseResult<LangItem> {
