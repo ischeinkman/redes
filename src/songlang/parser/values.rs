@@ -1,6 +1,7 @@
 use nom::{
     alt,
     bytes::complete::tag,
+    character::complete::alpha1,
     combinator::{map, map_opt, map_res, opt},
     error::context,
     named,
@@ -11,7 +12,7 @@ use nom::{
 use super::{nonzerou16, nonzerou64, rawint, rawuint, ParseError, ParseResult};
 use crate::midi::{MidiChannel, PressVelocity};
 use crate::model::{NoteClass, Octave};
-use crate::songlang::ast::ChordKind;
+use crate::songlang::ast::{ChordKind, OutputLabel};
 use std::str::FromStr;
 
 mod times;
@@ -43,6 +44,19 @@ pub fn parse_velocity(input: &str) -> ParseResult<PressVelocity> {
     let rawmapper = map_res(rawuint, u8::from_str);
     let pressmapper = map_opt(rawmapper, PressVelocity::from_raw);
     pressmapper(input)
+}
+
+pub fn parse_outputlabel(input: &str) -> ParseResult<OutputLabel> {
+    let (input, name) = alpha1(input)?;
+    let res = OutputLabel::from(name.to_owned());
+    Ok((input, res))
+}
+
+pub fn parse_fullchord(input : &str) -> ParseResult<(NoteClass, Octave, ChordKind)> {
+    let (input, note) = context("Parse Noteclass", parse_noteclass)(input)?;
+    let (input, octave) = context("Parse Octave", parse_octave)(input)?;
+    let (input, choord) = context("Parse Choordkind", parse_chordkind)(input)?;
+    Ok((input, (note, octave, choord)))
 }
 
 named!(
