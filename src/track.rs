@@ -10,6 +10,14 @@ pub trait EventTrack {
     /// Gets the instruction at the given position in the instruction list.
     fn get(&self, instruction_idx: usize) -> Option<TrackEvent>;
 
+    /// Gets the number of instructions in this track. 
+    fn len(&self) -> usize {
+        (0..usize::max_value())
+            .map(|idx| self.get(idx))
+            .take_while(|opt| opt.is_some())
+            .count()
+    }
+
     /// Collects the location and count of all `TrackEvent::Jump` instructions
     /// whose `count` value is not `None`. This is used internally to pre-allocate
     /// loop indices by the `TrackCursor`.
@@ -53,5 +61,8 @@ pub trait EventTrack {
 impl<T: AsRef<[TrackEvent]>> EventTrack for T {
     fn get(&self, instruction_idx: usize) -> Option<TrackEvent> {
         self.as_ref().get(instruction_idx).copied()
+    }
+    fn len(&self) -> usize {
+        self.as_ref().len()
     }
 }

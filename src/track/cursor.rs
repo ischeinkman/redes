@@ -1,16 +1,18 @@
 use super::{BpmInfo, EventTrack, OutputPort, TrackEvent};
 use crate::midi::MidiMessage;
+use std::collections::HashMap;
+use std::num::NonZeroU16;
 use std::time::Duration;
 
 /// A cursor along an `EventTrack`.
 /// Allows for stepping through the track and acts as a sort of
 /// "register list" for an event track "VM".
-#[derive(Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Debug, Clone, Eq, PartialEq)]
 pub struct TrackCursor<TrackData: EventTrack> {
     instruction_pointer: usize,
     cur_bpm: BpmInfo,
     cur_time: Duration,
-    jump_counts: Vec<(usize, u16)>,
+    jump_counts: JumpCounts,
     data: TrackData,
 }
 
@@ -35,13 +37,8 @@ enum StepOutput {
 /// Errors that may occur when calling `step()`.
 #[derive(Debug)]
 enum StepError {
-    #[allow(dead_code)]
-    BadJumpTarget {
-        target: usize,
-    },
-    JumpIdxNotFound {
-        target: usize,
-    },
+    BadJumpTarget { target: usize },
+    JumpIdxNotFound { target: usize },
     BadInstrPointer(usize),
 }
 
@@ -51,9 +48,27 @@ impl<T: EventTrack> TrackCursor<T> {
             instruction_pointer: 0,
             cur_bpm: BpmInfo::default(),
             cur_time: Duration::from_nanos(0),
-            jump_counts: data.finite_jumps(),
+            jump_counts: JumpCounts::from_iter(data.len(), data.finite_jumps()),
             data,
         }
+    }
+
+    /// Gets the current instruction pointer.
+    #[allow(dead_code)]
+    pub fn pc(&self) -> usize {
+        self.instruction_pointer
+    }
+
+    /// Gets the current BPM value.
+    #[allow(dead_code)]
+    pub fn bpm(&self) -> BpmInfo {
+        self.cur_bpm
+    }
+
+    /// Gets the current clock time in the track.
+    #[allow(dead_code)]
+    pub fn cur_clock(&self) -> Duration {
+        self.cur_time
     }
 
     /// Gets all MIDI events lying within a time period.
@@ -118,34 +133,68 @@ impl<T: EventTrack> TrackCursor<T> {
                 self.cur_time += time.as_duration(self.cur_bpm);
                 Ok(StepOutput::Continue)
             }
-            TrackEvent::Jump {
-                target,
-                count: None,
-            } => {
-                //TODO: Verify target validity
-                self.instruction_pointer = target;
+            TrackEvent::Jump { target, count } => {
+                let new_pc = self
+                    .jump_counts
+                    .do_jump(self.instruction_pointer, target, count)?;
+                self.instruction_pointer = new_pc;
                 Ok(StepOutput::Continue)
             }
-            TrackEvent::Jump {
-                target,
-                count: Some(max),
-            } => {
-                let cur_idx = self
-                    .jump_counts
-                    .binary_search_by_key(&self.instruction_pointer, |(idx, _)| *idx)
-                    .map_err(|_| StepError::JumpIdxNotFound {
-                        target: self.instruction_pointer,
-                    })?;
-                if self.jump_counts[cur_idx].1 == 0 {
-                    self.jump_counts[cur_idx].1 = max.get();
-                    self.instruction_pointer += 1;
-                    Ok(StepOutput::Continue)
-                } else {
-                    self.jump_counts[cur_idx].1 -= 1;
-                    self.instruction_pointer = target;
-                    Ok(StepOutput::Continue)
-                }
+        }
+    }
+}
+
+/// State information about jumps with finite counters.
+#[derive(Debug, Clone, Eq, PartialEq)]
+struct JumpCounts {
+    /// The maximum valid target a jump can point to
+    max_target: usize,
+    /// The map of jump instruction addresses to the number of times
+    /// those jumps have been processes.
+    /// Note that the current implementation does NOT contain values
+    /// for jumps without counters.
+    data: HashMap<usize, u16>,
+}
+
+impl JumpCounts {
+    /// Processes a single JUMP instruction.
+    ///
+    /// Verifies that the target is in bounds and
+    /// that the JUMP index cache was initialized correctly,
+    /// processes this jump's current counter (if it has one),
+    /// and returns the value of the instruction pointer after this
+    /// jump (either `target` or `idx + 1`, depending on counter states).
+    pub fn do_jump(
+        &mut self,
+        idx: usize,
+        target: usize,
+        count: Option<NonZeroU16>,
+    ) -> Result<usize, StepError> {
+        if target > self.max_target {
+            return Err(StepError::BadJumpTarget { target });
+        }
+        let count = match count {
+            Some(n) => n.get(),
+            None => {
+                return Ok(target);
             }
+        };
+        let cur_count = self
+            .data
+            .get_mut(&idx)
+            .ok_or_else(|| StepError::JumpIdxNotFound { target: idx })?;
+        if *cur_count == 0 {
+            *cur_count = count;
+            Ok(idx + 1)
+        } else {
+            *cur_count -= 1;
+            Ok(target)
+        }
+    }
+    pub fn from_iter(track_len: usize, itr: impl IntoIterator<Item = (usize, u16)>) -> Self {
+        Self {
+            max_target: track_len - 1,
+            data: itr.into_iter().collect(),
         }
     }
 }
