@@ -5,7 +5,7 @@ use std::fmt::{self, Formatter, LowerHex, UpperHex};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::time::Duration;
-use thiserror::Error;
+use thiserror::*;
 
 use bumpalo::collections::Vec as BumpVec;
 use bumpalo::Bump;
@@ -13,7 +13,7 @@ use bumpalo::Bump;
 mod midi;
 mod model;
 mod songlang;
-use songlang::{parse_file, AsmCommand, LangItem, OutputLabel};
+use songlang::parse_file;
 mod track;
 mod utils;
 use midi::MidiNote;
@@ -91,6 +91,8 @@ pub enum MyError {
     Jack(#[from] jack::Error),
     #[error("Could not send message to Port ID {0:?}: Not Found.")]
     InvalidPortId(OutputPort),
+    #[error(transparent)]
+    Compiler(#[from] crate::songlang::CompilerError),
 }
 
 fn main() {
@@ -98,8 +100,8 @@ fn main() {
         let mut file = OpenOptions::new().read(true).open(path).unwrap();
         let mut input = String::new();
         file.read_to_string(&mut input).unwrap();
-
-        let (_, res) = parse_file(&input)
+        println!("Raw file: {:?}", input);
+        let (out, res) = nom::combinator::complete(parse_file)(&input)
             .map_err(|e| match e {
                 nom::Err::Error(e) | nom::Err::Failure(e) => format!(
                     "Parse error: {}\n\nRaw:\n{:?}",
@@ -113,66 +115,16 @@ fn main() {
                 e
             })
             .unwrap();
+        println!("Parse res: {:?}", out);
+        assert!(out.trim().is_empty());
         res
     });
     let parsed = parsed.unwrap_or_default();
+    eprintln!("Found song with {} instructions.", parsed.len());
     for (idx, instr) in parsed.iter().enumerate() {
         println!("{:02} : {:?}", idx, instr);
     }
-    let mut track = Vec::new();
-    let mut labels = HashMap::new();
-    let mut jumps_to_labels = HashMap::new();
-
-    let mut outputs = HashMap::<Option<OutputLabel>, OutputPort>::new();
-
-    for instr in parsed.iter() {
-        match instr {
-            LangItem::Asm(AsmCommand::Wait(dur)) => {
-                let evt = TrackEvent::Wait(*dur);
-                track.push(evt);
-            }
-            LangItem::Asm(AsmCommand::Label(name)) => {
-                assert!(labels.insert(name, track.len()).is_none());
-            }
-            LangItem::Asm(AsmCommand::Jump { label, count }) => {
-                let cmd = TrackEvent::Jump {
-                    target: 0,
-                    count: *count,
-                };
-                jumps_to_labels.insert(track.len(), label);
-                track.push(cmd);
-            }
-            LangItem::Asm(AsmCommand::SetBpm(bpm)) => {
-                let cmd = TrackEvent::SetBpm(*bpm);
-                track.push(cmd);
-            }
-            LangItem::Asm(AsmCommand::Send { port, message }) => {
-                if !outputs.contains_key(&port) {
-                    outputs.insert(port.clone(), outputs.len().into());
-                }
-                let port_id = outputs[&port];
-                let cmd = TrackEvent::SendMessage {
-                    message: *message,
-                    port: port_id,
-                };
-                track.push(cmd);
-            }
-            other => {
-                todo!("Instr {:?} not yet implemented.", other);
-            }
-        }
-    }
-    track.push(TrackEvent::End);
-
-    for (idx, label) in jumps_to_labels {
-        let actual_target = labels.get(label).cloned().unwrap();
-        if let Some(TrackEvent::Jump { ref mut target, .. }) = track.get_mut(idx) {
-            *target = actual_target;
-        } else {
-            panic!("Error in label assignments; had mapping of {} => {}, but the event at IDX {} is {:?}.", idx, label, 
-            idx, track.get(idx));
-        }
-    }
+    let (track, outputs) = crate::songlang::compile_song(parsed).unwrap();
 
     let mut cursor = TrackCursor::new(track);
 
@@ -192,9 +144,9 @@ fn main() {
 
     // Necessary to avoid dynamic symbol resolution in the hotloop.
     // Safe-ish since while we technically do not actually verify safety variants/invariants
-    // aside from the fact that the client pointer is alive (IE we verify nothing about the 
+    // aside from the fact that the client pointer is alive (IE we verify nothing about the
     // frame time, client state aside from liveness, etc), we are really only resolving a dynamic
-    // symbol and discarding the result. 
+    // symbol and discarding the result.
     unsafe {
         let ps = ProcessScope::from_raw(client.frame_time(), client.raw());
         let _ = ps.cycle_times();

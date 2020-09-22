@@ -1,3 +1,4 @@
+use std::num::NonZeroU16;
 
 #[macro_export]
 macro_rules! const_try {
@@ -24,3 +25,7 @@ macro_rules! const_min {
         }
     }};
 }
+
+pub const ONE_NZU16 : NonZeroU16 = unsafe {
+    NonZeroU16::new_unchecked(1)
+};
