@@ -8,7 +8,7 @@ use nom::{
     character::complete::space1,
     combinator::map,
     error::context,
-    multi::{many0, separated_list},
+    multi::separated_list,
     sequence::delimited,
     sequence::{preceded, terminated},
 };

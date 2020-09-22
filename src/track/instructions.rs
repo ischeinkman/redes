@@ -73,7 +73,6 @@ pub enum WaitTime {
 impl WaitTime {
 
     /// Converts this waiting period to beat "ticks", as defined by the provided `bpm_info`. 
-    #[allow(dead_code)]
     pub const fn as_ticks(&self, bpm_info: BpmInfo) -> NonZeroU16 {
         match *self {
             WaitTime::Ticks(ticks) => ticks,
@@ -138,14 +137,12 @@ impl BpmInfo {
 
     /// The clock duration between the start of a 
     /// beat and the start of the next.
-    #[allow(dead_code)]
     pub const fn beat_duration(&self) -> Duration {
         Duration::from_nanos(self.nanos_per_beat())
     }
 
     /// The clock duration between the start of a 
     /// beat tick and the start of the next.
-    #[allow(dead_code)]
     pub const fn tick_duration(&self) -> Duration {
         Duration::from_nanos(self.nanos_per_tick())
     }

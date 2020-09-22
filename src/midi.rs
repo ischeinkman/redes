@@ -1,6 +1,6 @@
 use crate::const_min;
 use crate::model::{NoteClass, Octave};
-use thiserror::Error;
+use thiserror::*;
 
 mod notes;
 pub use notes::*;

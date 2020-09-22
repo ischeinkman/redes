@@ -22,6 +22,7 @@ pub fn nonzerou16(input: &str) -> ParseResult<NonZeroU16> {
     map_res(rawuint, NonZeroU16::from_str)(input)
 }
 
+#[allow(dead_code)]
 pub fn nonzerou128(input: &str) -> ParseResult<NonZeroU128> {
     map_res(rawuint, NonZeroU128::from_str)(input)
 }
