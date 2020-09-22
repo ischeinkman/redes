@@ -14,6 +14,7 @@ pub enum NoteClass {
     B,
 }
 
+#[allow(dead_code)]
 impl NoteClass {
     pub const fn all() -> &'static [NoteClass] {
         &[

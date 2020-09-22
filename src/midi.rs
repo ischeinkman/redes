@@ -159,6 +159,7 @@ const fn all_notes() -> [MidiNote; 128] {
     retvl
 }
 
+#[allow(dead_code)]
 impl MidiNote {
     pub fn all() -> &'static [MidiNote] {
         const RET: [MidiNote; 128] = all_notes();

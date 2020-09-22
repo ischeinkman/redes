@@ -1,7 +1,6 @@
 use jack::{Client, ClientOptions, MidiOut, ProcessScope};
 use std::collections::HashMap;
 use std::env::args;
-use std::fmt::{self, Formatter, LowerHex, UpperHex};
 use std::fs::OpenOptions;
 use std::io::Read;
 use std::time::Duration;
@@ -16,74 +15,11 @@ mod songlang;
 use songlang::parse_file;
 mod track;
 mod utils;
-use midi::MidiNote;
 use track::*;
 pub use utils::*;
 
 #[cfg(feature = "rt-alloc-panic")]
 mod malloc;
-
-#[inline(always)]
-const fn mask(note: MidiNote) -> u128 {
-    let bt = note.as_u8();
-    1 << bt
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash, Default)]
-pub struct NoteState {
-    data: u128,
-}
-
-#[derive(Debug, Copy, Clone, Eq, PartialEq, Hash)]
-pub enum DifferenceSide {
-    Left,
-    Right,
-}
-
-impl NoteState {
-    pub const fn new() -> Self {
-        Self { data: 0 }
-    }
-    pub const fn is_pressed(&self, note: MidiNote) -> bool {
-        self.data & mask(note) != 0
-    }
-    pub const fn with_press(mut self, note: MidiNote) -> Self {
-        self.data |= mask(note);
-        self
-    }
-    pub const fn with_release(mut self, note: MidiNote) -> Self {
-        let press_mask = mask(note);
-        let release_mask = !press_mask;
-        self.data &= release_mask;
-        self
-    }
-    pub const fn with_toggled(mut self, note: MidiNote) -> Self {
-        let mask = mask(note);
-        self.data ^= mask;
-        self
-    }
-    pub fn notes<'a>(&'a self) -> impl Iterator<Item = MidiNote> + 'a {
-        (0..128)
-            .filter_map(MidiNote::from_raw)
-            .filter(move |&note| self.is_pressed(note))
-    }
-
-    pub fn difference<'a>(
-        &'a self,
-        other: &'a Self,
-    ) -> impl Iterator<Item = (MidiNote, DifferenceSide)> + 'a {
-        (0..128)
-            .filter_map(MidiNote::from_raw)
-            .filter(move |&note| self.is_pressed(note) != other.is_pressed(note))
-            .map(move |note| {
-                if self.is_pressed(note) {
-                    (note, DifferenceSide::Left)
-                } else {
-                    (note, DifferenceSide::Right)
-                }
-            })
-    }
-}
 
 #[derive(Debug, Error)]
 pub enum MyError {
@@ -224,50 +160,5 @@ fn main() {
         .unwrap();
     loop {
         std::thread::sleep(Duration::from_millis(1000));
-    }
-}
-
-pub struct ByteWrapper<S: AsRef<[u8]> + ?Sized> {
-    inner: S,
-}
-impl<S: AsRef<[u8]>> ByteWrapper<S> {
-    pub fn new(inner: S) -> Self {
-        Self { inner }
-    }
-}
-
-impl<S: AsRef<[u8]> + ?Sized> UpperHex for ByteWrapper<S> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let sls = self.inner.as_ref();
-        let (head, tail) = match sls.split_first() {
-            Some(inner) => inner,
-            None => {
-                return f.write_str("[]");
-            }
-        };
-        f.write_fmt(format_args!("[ 0x{:X}", head))?;
-        for bt in tail {
-            f.write_fmt(format_args!(", 0x{:X}", bt))?;
-        }
-        f.write_str(" ]")?;
-        Ok(())
-    }
-}
-
-impl<S: AsRef<[u8]> + ?Sized> LowerHex for ByteWrapper<S> {
-    fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
-        let sls = self.inner.as_ref();
-        let (head, tail) = match sls.split_first() {
-            Some(inner) => inner,
-            None => {
-                return f.write_str("[]");
-            }
-        };
-        f.write_fmt(format_args!("[ 0x{:x}", head))?;
-        for bt in tail {
-            f.write_fmt(format_args!(", 0x{:x}", bt))?;
-        }
-        f.write_str(" ]")?;
-        Ok(())
     }
 }
