@@ -12,6 +12,7 @@ pub struct TrackCursor<TrackData: EventTrack> {
     instruction_pointer: usize,
     cur_bpm: BpmInfo,
     cur_time: Duration,
+    cur_ticks : u16,  
     jump_counts: JumpCounts,
     data: TrackData,
 }
@@ -48,6 +49,7 @@ impl<T: EventTrack> TrackCursor<T> {
             instruction_pointer: 0,
             cur_bpm: BpmInfo::default(),
             cur_time: Duration::from_nanos(0),
+            cur_ticks : 0,  
             jump_counts: JumpCounts::from_iter(data.len(), data.finite_jumps()),
             data,
         }
@@ -69,6 +71,14 @@ impl<T: EventTrack> TrackCursor<T> {
     #[allow(dead_code)]
     pub fn cur_clock(&self) -> Duration {
         self.cur_time
+    }
+
+    /// Gets the number of beat "ticks" that have occured in the track.
+    /// Note that this is NOT a true measure of time, since the length 
+    /// of a single tick can change between SET BPM commands. 
+    #[allow(dead_code)]
+    pub fn cur_ticks(&self) -> u16 {
+        self.cur_ticks
     }
 
     /// Gets all MIDI events lying within a time period.
@@ -131,6 +141,7 @@ impl<T: EventTrack> TrackCursor<T> {
             TrackEvent::Wait(time) => {
                 self.instruction_pointer += 1;
                 self.cur_time += time.as_duration(self.cur_bpm);
+                self.cur_ticks += time.as_ticks(self.cur_bpm).get();
                 Ok(StepOutput::Continue)
             }
             TrackEvent::Jump { target, count } => {
