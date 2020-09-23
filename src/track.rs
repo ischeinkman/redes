@@ -1,6 +1,9 @@
 mod cursor;
 pub use cursor::*;
 
+mod multicursor;
+pub use multicursor::*;
+
 mod instructions;
 pub use instructions::{BpmInfo, TrackEvent, WaitTime, OutputPort};
 

@@ -6,7 +6,7 @@ use nom::{
     character::complete::multispace1,
     character::complete::space0,
     character::complete::space1,
-    combinator::map,
+    combinator::{complete, map},
     error::context,
     multi::separated_list,
     sequence::delimited,
@@ -37,6 +37,7 @@ pub fn parse_file(input: &str) -> ParseResult<Vec<LangItem>> {
         "File root command parser",
         separated_list(multispace1, parse_expr),
     )(input)?;
+    let (input, _) = complete(multispace0)(input)?;
     Ok((input, res))
 }
 

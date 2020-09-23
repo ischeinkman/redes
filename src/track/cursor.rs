@@ -68,7 +68,6 @@ impl<T: EventTrack> TrackCursor<T> {
     }
 
     /// Gets the current clock time in the track.
-    #[allow(dead_code)]
     pub fn cur_clock(&self) -> Duration {
         self.cur_time
     }
