@@ -43,27 +43,36 @@ impl<T: EventTrack> VecMultiCursor<T> {
             .unwrap_or_default()
     }
 
-    /// Gets all MIDI events lying within a time period.
+    /// Moves the cursor forwards in time, emitting MIDI messages
+    /// encountered along the way.
     ///
-    /// Both `start` and `end` are measured since the start of
-    /// track playback. The time period includes `start`, but does
-    /// not include `end`. Events will be returned with the timestamp
-    /// of the event, again measured since the start of track playback.
+    /// Events will be returned with the timestamp
+    /// of the event measured since the start of track playback, NOT
+    /// from the previous value of the cursor's internal clock. 
     ///
     /// Message output ports are given as `(usize, OutputPort)` instead of the regular `OutputPort`
     /// with the `usize` corresponding to the index in the vector of the track that produced the
     /// message. This allows for more dynamic mapping of track + port label index -> actual output
     /// port structure.
-    pub fn events_in_range<'a>(
+    pub fn step_until<'a>(
         &'a mut self,
-        start: Duration,
         end: Duration,
     ) -> impl Iterator<Item = (Duration, PortIdent, MidiMessage)> + 'a {
         let cursor_mapper = move |(idx, cursor): (_, &'a mut TrackCursor<_>)| {
             cursor
-                .events_in_range(start, end)
+                .step_until( end)
                 .map(move |(time, port, msg)| (time, (idx, port), msg))
         };
         self.cursors.iter_mut().enumerate().flat_map(cursor_mapper)
+    }
+
+    /// Resets all cursors back to the beginning of the track.
+    /// This includes resetting the instruction pointer, tick counter, 
+    /// internal clock, and all jump index values back to zero, as well
+    /// as resetting the BPM value back to default.
+    pub fn reset(&mut self) {
+        for cursor in self.cursors.iter_mut() {
+            cursor.reset();
+        }
     }
 }

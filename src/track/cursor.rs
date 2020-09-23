@@ -67,7 +67,7 @@ impl<T: EventTrack> TrackCursor<T> {
         self.cur_bpm
     }
 
-    /// Gets the current clock time in the track.
+    /// Gets the current value of the cursor's interal track clock.
     pub fn cur_clock(&self) -> Duration {
         self.cur_time
     }
@@ -80,22 +80,16 @@ impl<T: EventTrack> TrackCursor<T> {
         self.cur_ticks
     }
 
-    /// Gets all MIDI events lying within a time period.
+    /// Moves the cursor forwards in time, emitting MIDI messages
+    /// encountered along the way.
     ///
-    /// Both `start` and `end` are measured since the start of
-    /// track playback. The time period includes `start`, but does
-    /// not include `end`. Events will be returned with the timestamp
-    /// of the event, again measured since the start of track playback.
-    pub fn events_in_range<'a>(
+    /// Events will be returned with the timestamp
+    /// of the event measured since the start of track playback, NOT
+    /// from the previous value of the cursor's internal clock. 
+    pub fn step_until<'a>(
         &'a mut self,
-        start: Duration,
         end: Duration,
     ) -> impl Iterator<Item = (Duration, OutputPort, MidiMessage)> + 'a {
-        while self.cur_time < start {
-            if self.step().unwrap() == StepOutput::End {
-                break;
-            }
-        }
         std::iter::from_fn(move || loop {
             if self.cur_time > end {
                 return None;
@@ -110,6 +104,18 @@ impl<T: EventTrack> TrackCursor<T> {
                 StepOutput::Continue => {}
             }
         })
+    }
+
+    /// Resets the cursor back to the beginning of the track.
+    /// This includes resetting the instruction pointer, tick counter, 
+    /// internal clock, and all jump index values back to zero, as well
+    /// as resetting the BPM value back to default.
+    pub fn reset(&mut self) {
+        self.instruction_pointer = 0;
+        self.cur_bpm = BpmInfo::default();
+        self.cur_time = Duration::from_nanos(0);
+        self.cur_ticks = 0;
+        self.jump_counts.reset(&self.data).unwrap();
     }
 
     /// Runs the instruction at the current instruction pointer
@@ -200,6 +206,20 @@ impl JumpCounts {
             *cur_count -= 1;
             Ok(target)
         }
+    }
+
+    /// Resets the value of all jump counters. 
+    pub fn reset(&mut self, track : &impl EventTrack) -> Result<(), StepError> {
+        for (idx, count) in self.data.iter_mut() {
+            let evt = track.get(*idx);
+            if let Some(TrackEvent::Jump {count : Some(cur_count), ..}) = evt {
+                *count = cur_count.get();
+            } else{
+                return Err(StepError::JumpIdxNotFound {target :*idx});
+            }
+        }
+
+        Ok(())
     }
     pub fn from_iter(track_len: usize, itr: impl IntoIterator<Item = (usize, u16)>) -> Self {
         Self {
