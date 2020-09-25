@@ -1,12 +1,11 @@
 use super::{
-    parse_channel, parse_fullchord, parse_outputlabel, parse_rawduration, parse_velocity,
-    ChordPress, ParseResult, PressLine, PressModifier,
+    parse_channel, parse_fullchord, parse_outputlabel, parse_rawduration, parse_velocity, space0,
+    space1, ChordPress, ParseResult, PressLine, PressModifier,
 };
 
 use nom::{
     branch::alt,
     bytes::complete::{tag, tag_no_case},
-    character::complete::{space0, space1},
     combinator::{map, opt},
     multi::{separated_list, separated_nonempty_list},
     sequence::{delimited, preceded},

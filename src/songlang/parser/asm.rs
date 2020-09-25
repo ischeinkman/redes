@@ -2,17 +2,13 @@ use crate::midi::{MidiChannel, MidiMessage, MidiNote, NoteOff, NoteOn, PressVelo
 use crate::track::BpmInfo;
 
 use nom::{
-    branch::alt,
-    bytes::complete::tag,
-    bytes::complete::tag_no_case,
-    character::complete::alpha1,
-    character::complete::{space0, space1},
-    combinator::map,
-    error::context,
+    branch::alt, bytes::complete::tag, bytes::complete::tag_no_case, character::complete::alpha1,
+    combinator::map, error::context,
 };
 
 use super::{
-    nonzerou16, parse_channel, parse_notepitch, parse_rawduration, parse_velocity, ParseResult, parse_outputlabel
+    nonzerou16, parse_channel, parse_notepitch, parse_outputlabel, parse_rawduration,
+    parse_velocity, space0, space1, ParseResult,
 };
 use crate::songlang::ast::{AsmCommand, OutputLabel};
 

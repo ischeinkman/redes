@@ -2,11 +2,8 @@ use super::ast::*;
 use nom::{
     branch::alt,
     bytes::complete::tag,
-    character::complete::multispace0,
-    character::complete::multispace1,
-    character::complete::space0,
-    character::complete::space1,
-    combinator::{complete, map},
+    character::complete::{line_ending, not_line_ending},
+    combinator::{complete, cut, map},
     error::context,
     multi::separated_list,
     sequence::delimited,
@@ -86,4 +83,37 @@ pub fn parse_loop(input: &str) -> ParseResult<LangItem> {
         repititions: loopcount,
     };
     Ok((input, res))
+}
+
+pub fn parse_comment_inline(input: &str) -> ParseResult<()> {
+    let body_parser = |inp: &str| {
+        let endparser = alt((eof, tag("*/"), line_ending));
+        let mut idx = 0;
+        loop {
+            let (head, tail) = input.split_at(idx);
+            if endparser(tail).is_ok() {
+                return Ok((tail, head));
+            }
+            idx += 1;
+            while !inp.is_char_boundary(idx) {
+                idx += 1;
+            }
+        }
+    };
+    let parser = delimited(tag("/*"), body_parser, cut(tag("*/")));
+    context("CommentInline", map(parser, |_| ()))(input)
+}
+
+pub fn parse_comment_fullline(input: &str) -> ParseResult<()> {
+    let line_beginning = alt((tag("#"), tag("//")));
+    let parser = delimited(line_beginning, not_line_ending, alt((line_ending, eof)));
+    let (input, _) = context("CommentFullline", parser)(input)?;
+    Ok((input, ()))
+}
+
+pub fn parse_comment(input: &str) -> ParseResult<()> {
+    context(
+        "CommentAny",
+        alt((parse_comment_inline, parse_comment_fullline)),
+    )(input)
 }

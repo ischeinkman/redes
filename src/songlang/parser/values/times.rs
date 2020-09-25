@@ -1,10 +1,9 @@
 use super::{nonzerou16, nonzerou64};
-use crate::songlang::ParseResult;
+use crate::songlang::{ParseResult, space0, space1};
 use crate::track::WaitTime;
 use nom::{
     branch::alt,
     bytes::complete::tag_no_case,
-    character::complete::{space0, space1},
     sequence::preceded,
 };
 use std::time::Duration;
